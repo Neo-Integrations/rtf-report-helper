@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:cloudhub="http://www.mulesoft.org/schema/mule/cloudhub" xmlns:custom-metrics="http://www.mulesoft.org/schema/mule/custom-metrics"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:api-gateway="http://www.mulesoft.org/schema/mule/api-gateway" xmlns:netsuite="http://www.mulesoft.org/schema/mule/netsuite" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/netsuite http://www.mulesoft.org/schema/mule/netsuite/current/mule-netsuite.xsd
+http://www.mulesoft.org/schema/mule/api-gateway http://www.mulesoft.org/schema/mule/api-gateway/current/mule-api-gateway.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/custom-metrics http://www.mulesoft.org/schema/mule/custom-metrics/current/mule-custom-metrics.xsd
+http://www.mulesoft.org/schema/mule/cloudhub http://www.mulesoft.org/schema/mule/cloudhub/current/mule-cloudhub.xsd">
+	<cloudhub:config name="CloudHub_Config" doc:name="CloudHub Config" doc:id="63cdcaef-cc6b-4beb-8bee-49b9c7ac411c" >
+		<cloudhub:connection username="flyaminul" password="Change1t@1" environment="0194f249-5168-43b3-a00f-8310dc0c75c7" />
+	</cloudhub:config>
+	<flow name="uiFlow1" doc:id="60529529-c0d2-43d2-9434-632f5ebfff22" >
+		<http:listener doc:name="Listener" doc:id="af4fa74b-59b5-41da-a5ee-d9580d365f30" config-ref="HTTP_Listener_config" path="/not"/>
+		<cloudhub:create-notification doc:name="Create Notification" doc:id="a4ba7530-27ff-425b-910e-d3b44c097321" config-ref="CloudHub_Config" domain="rtf-report-helper-v1-dev-rtf" priority="ERROR">
+			<cloudhub:message ><![CDATA[Something wrong]]></cloudhub:message>
+		</cloudhub:create-notification>
+	</flow>
+	<flow name="uiFlow" doc:id="59f57279-f49a-49cf-be76-615116b19635" >
+		<http:listener doc:name="Listener" doc:id="a3006016-89aa-4ed1-bc46-f70b6416d678" config-ref="HTTP_Listener_config" path="/"/>
+		<http:load-static-resource doc:name="Load static resource" doc:id="bfc9c451-41fc-473b-8791-1140c88bb849" resourceBasePath="${app.home}/web"/>
+		<custom-metrics:send doc:name="Send Custom Metric" doc:id="df13abd7-e056-43e0-80f0-4928cba30902" metricName="sales">
+			<custom-metrics:dimensions>
+				<custom-metrics:dimension dimensionName="acv" value="20" />
+			</custom-metrics:dimensions>
+			<custom-metrics:facts />
+		</custom-metrics:send>
+	</flow>
+</mule>

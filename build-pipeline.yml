@@ -1,0 +1,64 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)
+
+variables:
+- group: ANYPOINT_CONFIG
+- group: ANYPOINT_MULESOFT_CONFIG_DEV
+- group: PIPELINE_CONFIG
+
+trigger:
+  branches:
+    include: # branch names which will trigger a build
+    - master
+    
+pr: none
+
+pool:
+  vmImage: 'ubuntu-20.04'
+
+stages:
+- stage: BuildAndPublish
+  jobs:
+    - job: BuildAndPublish
+      continueOnError: false
+      steps:
+        - task: MavenAuthenticate@0
+          displayName: 'Maven Authenticate'
+          inputs:
+            mavenServiceConnections: mule-ee,mulesoft-private,anypoint-exchange-v2,phonix-releases
+        - task: Cache@2
+          displayName: 'Cache Maven local repo'
+          inputs:
+            key: '$(Build.SourcesDirectory)/pom.xml'
+            path: '$(local.repo)'
+        - task: Maven@3
+          displayName: 'Build and Publish to Feed'
+          inputs:
+            mavenPomFile: "$(Build.SourcesDirectory)/pom.xml"
+            goals: "deploy"
+            mavenOptions: "-Xmx3072m"
+            javaHomeOption: "JDKVersion"
+            jdkVersionOption: "1.8"
+            options: " -P toMuleExchangeDistribution,RTF -Dmule.env=$(anypoint.org) -Dsecret.key=$(secret.key) -Dmaven.repo.local=$(local.repo)"
+            jdkArchitectureOption: "x64"
+            publishJUnitResults: true
+            testResultsFiles: "**/surefire-reports/TEST-*.xml"
+        - task: CopyFiles@2
+          displayName: 'Copy the build artifact'
+          inputs:
+            Contents: '**/target/*.jar'
+            TargetFolder: '$(Build.ArtifactStagingDirectory)'
+            CleanTargetFolder: true
+            flattenFolders: false
+        - task: CopyFiles@2
+          displayName: 'Copy the pom.xml'
+          inputs:
+            Contents: 'pom.xml'
+            TargetFolder: '$(Build.ArtifactStagingDirectory)'
+            CleanTargetFolder: false
+            flattenFolders: false
+        - task: PublishBuildArtifacts@1
+          inputs:
+            PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+            ArtifactName: 'rtf-report-helper-v1'
+            publishLocation: 'Container'
+            FileCopyOptions: '*'

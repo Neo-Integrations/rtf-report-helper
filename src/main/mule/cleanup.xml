@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+	<flow name="batch-remove-old-filesFlow" doc:id="caa638f4-4bc6-4ac9-a817-3fd51bfbb49f" >
+		<scheduler doc:name="Scheduler" doc:id="a6da1b56-b333-488d-b945-905ecc45e52e" >
+			<scheduling-strategy >
+				<fixed-frequency frequency="600" timeUnit="SECONDS"/>
+			</scheduling-strategy>
+		</scheduler>
+		<file:list doc:name="List" doc:id="3083b241-58fa-4c64-9f7c-b66f323f4b80" directoryPath="${app.home}/assets/tmp/">
+			<file:matcher createdUntil="#[(now() - |PT1H|) as LocalDateTime]" timeUnit="MINUTES" directories="EXCLUDE" symLinks="EXCLUDE" filenamePattern="*.xlsx"/>
+		</file:list>
+
+		<foreach doc:name="For Each" doc:id="026f2e18-df65-4949-878d-1786248a9cca" >
+			<file:delete doc:name="Delete" doc:id="430da046-c151-4c3d-8bec-bd3d6fc89214" path='#[attributes.path]'/>
+		</foreach>
+	</flow>
+</mule>

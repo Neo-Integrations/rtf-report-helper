@@ -1,0 +1,33 @@
+#%RAML 1.0
+title: rtf-report-helper-v1
+version: v1
+description: RTF Report Helper
+
+/reports:
+  post:
+    body: 
+      multipart/form-data:
+        properties:
+          file1:
+            description: The file to be uploaded. Support binary format only (*.gz)
+            required: true
+            type: file
+          env:
+            enum: [DEV, UAT, PRD]
+            required: true
+    responses: 
+      200:
+        headers:
+          Content-type:
+            displayName: Content-type
+            description: File's MIME type ("application/xlsx", etc.)
+            type: string
+            required: true
+          Content-Disposition:
+            displayName: Content-Disposition
+            description: This will return the file name
+            required: true
+            type: string
+        body:
+          application/xlsx:
+            type: file

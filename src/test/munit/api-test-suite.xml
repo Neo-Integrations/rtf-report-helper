@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
+	xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xsi:schemaLocation="
+		http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+		http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+		http://www.mulesoft.org/schema/mule/munit-tools  http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+	<munit:config name="api-test-suite.xml" />
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="43c30911-4db6-41d2-8e77-a58c8fe79d3e" >
+		<http:request-connection host="localhost" port="8081" />
+	</http:request-config>
+	<munit:test name="api-test-suite-api-mainTest" doc:id="00a43e16-0d5b-4ed5-8f21-c4a7734ef7ad" description="Test">
+<!-- 	    <munit:enable-flow-sources > -->
+<!-- 			<munit:enable-flow-source value="api-main" /> -->
+<!-- 		</munit:enable-flow-sources> -->
+		<munit:behavior >
+			<munit-tools:mock-when doc:name="Mock when" doc:id="3511c00c-e988-41de-b241-de97c814d21e" processor="apikit:router">
+				<munit-tools:with-attributes >
+					<munit-tools:with-attribute whereValue="api-config" attributeName="config-ref" />
+					<munit-tools:with-attribute whereValue="e36f5441-28c6-4264-8857-00fe2fbd433b" attributeName="doc:id" />
+				</munit-tools:with-attributes>
+				<munit-tools:then-call flow="post:\reports:multipart\form-data:api-config" />
+			</munit-tools:mock-when>
+			<munit-tools:mock-when doc:name="Mock when" doc:id="e192949a-3606-431b-99ff-ecfe3bd0b297" processor="file:read">
+				<munit-tools:with-attributes >
+					<munit-tools:with-attribute whereValue="Read The file" attributeName="doc:name" />
+					<munit-tools:with-attribute whereValue="030d3c73-72a6-478c-8cfa-31da811a80aa" attributeName="doc:id" />
+				</munit-tools:with-attributes>
+			</munit-tools:mock-when>
+		</munit:behavior>
+		<munit:execution>
+			<file:read doc:name="Read" doc:id="d1729cc7-1117-443c-9805-258877974e07" path="${app.home}/nodeinfo_20210223_0919.gz"/>
+			<ee:transform doc:name="Transform Message" doc:id="f6f07860-4ae3-42a9-9fda-2599181bd1c1" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0  
+output multipart/form-data
+---
+{
+	parts: {
+	    file1: {
+	        headers: {
+	            "Content-Disposition": {
+	                "name": "file1",
+	                "filename": "nodeinfo_20210223_0919.gz"
+	            },
+	            "Content-Type": payload.^mimeType
+	        },
+	        content: payload
+	   },
+		env: {
+            headers: {
+                "Content-Type": "text/plain"
+            },
+        	content: "DEV"
+        }
+	   	
+	}
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<flow-ref doc:name="api-main" doc:id="effeab4f-5b9b-45a6-a0e5-7b24d2d42a83" name="api-main"/>
+		</munit:execution>
+		<munit:validation >
+			<munit-tools:assert doc:name="Assert expression" doc:id="0396e164-5700-40cc-a424-bd397f43fdf0" >
+				<munit-tools:that ><![CDATA[#[import * from dw::test::Asserts 
+ ---
+vars.fileName must notBeNull()]]]></munit-tools:that>
+			</munit-tools:assert>
+		</munit:validation>
+	</munit:test>
+
+</mule>

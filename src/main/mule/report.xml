@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:java="http://www.mulesoft.org/schema/mule/java"
+	xmlns:api-gateway="http://www.mulesoft.org/schema/mule/api-gateway"
+	xmlns:compression="http://www.mulesoft.org/schema/mule/compression"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/compression http://www.mulesoft.org/schema/mule/compression/current/mule-compression.xsd
+http://www.mulesoft.org/schema/mule/api-gateway http://www.mulesoft.org/schema/mule/api-gateway/current/mule-api-gateway.xsd
+http://www.mulesoft.org/schema/mule/java http://www.mulesoft.org/schema/mule/java/current/mule-java.xsd">
+	<flow name="start-report-flow" doc:id="0125a065-e839-4df5-a698-bb96965ecd59">
+		<flow-ref doc:name="Init variables" doc:id="6bbb1cda-cf58-4dc1-ac43-07c77ea41717" name="init-sub-flow" />
+		<flow-ref doc:name="extract-file-attachment-sub-flow" doc:id="9f825078-2c66-47e0-8992-063d08435828" name="extract-file-attachment-sub-flow" />
+		<foreach doc:name="For Each line of the file" doc:id="66f6cddf-4cd4-4620-b626-9afaa3a6c91d" collection="#[%dw 2.0
+
+import java!java::lang::System
+---
+payload splitBy System::lineSeparator()]">
+			<choice doc:name="Choice" doc:id="2c03f453-689a-4a9f-8188-d4ba3c279f63">
+							<when expression='#[(payload startsWith("Allocated resources:")) and vars.continue == true]'>
+					<ee:transform doc:name="Reset the continue to false" doc:id="f339b5c9-2e75-439f-88b0-d5d9d7b415b6">
+						<ee:message>
+						</ee:message>
+						<ee:variables>
+							<ee:set-variable variableName="continue"><![CDATA[%dw 2.0
+output application/java
+---
+false]]></ee:set-variable>
+						</ee:variables>
+					</ee:transform>
+				</when>
+				<when expression='#[(payload startsWith("Non-terminated Pods:")) or vars.continue == true]'>
+					<flow-ref doc:name="start-extract-stats-sub-flow" doc:id="dadc8447-f319-4b73-aa50-1067e7c87f47" name="start-extract-stats-sub-flow" />
+				</when>
+				<when expression='#[(payload startsWith("================ "))]'>
+					<ee:transform doc:name="Transform Message" doc:id="a3f06e11-0ffc-45e6-81e5-c74b95b8f295">
+						<ee:message>
+						</ee:message>
+						<ee:variables>
+							<ee:set-variable variableName="node"><![CDATA[%dw 2.0
+output application/java
+var SINGLE_SPACE=" "
+---
+trim((payload splitBy SINGLE_SPACE)[1])]]></ee:set-variable>
+						</ee:variables>
+					</ee:transform>
+				</when>
+
+			</choice>
+		</foreach>
+		<ee:transform doc:name="Transform Message" doc:id="0dc756ee-1ee7-40c0-b93b-13a05a41f2d3">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+vars.data]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<flow-ref doc:name="export-content-in-excel-sub-flow" doc:id="312f2ed0-aab0-4b76-a382-8a77fe44aa4c" name="export-content-in-excel-sub-flow"/>
+	</flow>
+	<sub-flow name="export-content-in-excel-sub-flow" doc:id="7adc8e23-bb04-4f25-bf70-1f2a0170c2c1" >
+		<java:new doc:name="New Instance of ExcelRTFReportExporter" doc:id="42baa9b4-52a1-4a45-a3b7-0f25cf31d214" class="org.mule.rtfreport.ExcelRTFReportExporter" constructor="ExcelRTFReportExporter()" target="excelRTFReportExporter"/>
+		<java:invoke doc:name="Export the content as excel" doc:id="fa613225-012f-4d48-ad9d-69105c8c73ff" instance="#[vars.excelRTFReportExporter]" class="org.mule.rtfreport.ExcelRTFReportExporter" method="createNodeSheet(List, String, String)" target="fileName">
+			<java:args ><![CDATA[#[{
+	records: payload,
+	environment: vars.env as String,
+	appHome: p('app.home')
+}]]]></java:args>
+		</java:invoke>
+		<file:read doc:name="Read The file" doc:id="030d3c73-72a6-478c-8cfa-31da811a80aa" path="#[vars.fileName]" outputMimeType="application/xlsx" outputEncoding="UTF-8" />
+	</sub-flow>
+	<sub-flow name="extract-file-attachment-sub-flow" doc:id="75a55ebe-46fb-4f9a-90de-852df448a2a5" >
+		<ee:transform doc:name="Extract Env" doc:id="c504129d-78a2-40c8-8ea5-bc3a7017e035">
+			<ee:message>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="env" ><![CDATA[%dw 2.0
+output application/java
+---
+payload.parts.env.content]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Extract the attachments" doc:id="b522c81f-52e3-4183-8174-34acbcfe6b6d">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+payload.parts.file1.content]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<compression:decompress doc:name="Decompress" doc:id="635a600b-9f2e-4476-898e-e47a192adb96">
+			<compression:decompressor>
+				<compression:gzip-decompressor />
+			</compression:decompressor>
+		</compression:decompress>
+	</sub-flow>
+	<sub-flow name="start-extract-stats-sub-flow" doc:id="0bddfdea-caa8-4b72-aa56-e3b25761a851">
+		<choice doc:name="Choice" doc:id="14062ecb-3227-47ae-9388-fddfb81a8a66">
+						<when expression='#[(payload startsWith("Non-terminated Pods:"))]'>
+				<ee:transform doc:name="Init countdown to 2" doc:id="6d4bf923-9f64-4ac7-9bd5-95f6ae33be61">
+					<ee:message>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="countdown"><![CDATA[%dw 2.0
+output application/java
+---
+2]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+						</when>
+			<when expression="#[vars.countdown == 0]">
+				<ee:transform doc:name="Parse each line" doc:id="621c9105-4bf2-4c34-95f4-62d95be5af92">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+var DOUBLE_SPACE="  "
+var headers = {
+	"0": "Node",
+	"1": "Namespace",
+	"2": "Name",
+	"3": "CPU Requests",
+	"4": "CPU Limits",
+	"5": "Memory Requests",
+	"6": "Memory Limits",
+	"7": "AGE"
+}
+
+---
+(
+	[{
+		(headers["0"]): vars.node
+	}] ++ (
+		((payload splitBy DOUBLE_SPACE) map (data, index) -> {
+		    	(key: trim(data)) if(isEmpty(data) == false)
+		}) filter (isEmpty($) == false) map (d, i) -> {
+		    	(headers[i + 1]): d.key
+		   }
+	) reduce ((env, obj={}) -> obj ++ env)
+	
+)]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<ee:transform doc:name="Add derievd fields" doc:id="90fa06f5-3fc2-4bf7-96b6-340f398f8e30">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+var headers = {
+	"8": "Application Pod",
+	"9": "CPU Requests Value",
+	"10": "CPU Limits Value",
+	"11": "CPU Burst Value",
+	"12": "Memory Requests Value",
+	"13": "Memory Limits Value"
+}
+var v9 = (payload."CPU Requests" splitBy(" "))[0] replace /[a-zA-Z]+/ with ""
+var v10 = (payload."CPU Limits" splitBy(" "))[0] replace /[a-zA-Z]+/ with ""
+---
+payload ++ {
+	(headers["8"]): if((payload.Namespace contains "kube") or (payload.Namespace contains "monitoring") or (payload.Namespace contains "rtf")) "FALSE" else "TRUE",
+	(headers["9"]): v9 as Number,
+	(headers["10"]): v10 as Number,
+	(headers["11"]): (v10 - v9) as Number,
+	(headers["12"]): ((payload."Memory Requests" splitBy(" "))[0] replace /[a-zA-Z]+/ with "") as Number,
+	(headers["13"]): ((payload."Memory Limits" splitBy(" "))[0] replace /[a-zA-Z]+/ with "") as Number,
+	
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<ee:transform doc:name="Collector" doc:id="4ffe36e7-56c4-4a79-9c82-f55312e88ee2">
+					<ee:message>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="data"><![CDATA[%dw 2.0
+output application/java
+import java!java::lang::System
+---
+vars.data ++ [payload]]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</when>
+			<otherwise>
+				<ee:transform doc:name="Decrement the countdown" doc:id="48ba6fc9-96a4-4970-91f8-b6e4c6d5e64f">
+					<ee:message>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="countdown"><![CDATA[%dw 2.0
+output application/java
+---
+(vars.countdown - 1)]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</otherwise>
+					</choice>
+		<ee:transform doc:name="Continue to Load" doc:id="a6c4e9a5-4a0a-40ad-919b-73868be72c5b">
+					<ee:message>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="continue"><![CDATA[%dw 2.0
+output application/java
+---
+true]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+	</sub-flow>
+	<sub-flow name="init-sub-flow" doc:id="cff66676-dfc1-4870-9324-28b10e8f4d91" >
+		<set-variable value="#[[]]" doc:name="Initiate a variable - data" doc:id="84926606-262d-412b-a453-58f226fccd6e" variableName="data" />
+		<set-variable value="#[false]" doc:name="Set a conditional variable - continue" doc:id="d41a99e1-efc4-4b99-9b54-2074ade24129" variableName="continue" />
+		<set-variable value="#[0]" doc:name="Init countdown to 0" doc:id="b9ffd8fc-d2eb-404c-bd51-c9ce598c499b" variableName="countdown" />
+	</sub-flow>
+</mule>
